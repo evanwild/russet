@@ -9,6 +9,7 @@ It includes a lot of stuff to make your life easier, such as:
 - Crisp graphics on high-DPI displays
 - Drawing shapes correctly when the browser is resized
 - Culling objects that aren't in the view (big performance boost)
+- Putting objects into groups to be rotated, scaled, and translated
 
 ## Example
 
@@ -16,6 +17,7 @@ It includes a lot of stuff to make your life easier, such as:
 <!DOCTYPE html>
 <html>
   <head>
+	<meta charset="UTF-8" />
     <title>Russet Example</title>
     <script src="./russet.js"></script>
   </head>
@@ -24,7 +26,7 @@ It includes a lot of stuff to make your life easier, such as:
       // Creates a canvas and starts the game loop
       Russet.init();
 
-      // Sets the active world to be 1000x1000 units with a green background
+      // Sets the active world to be 1000x1000 units with a white background
       const world = new World(1000, 1000, 'white');
       Russet.setWorld(world);
 
