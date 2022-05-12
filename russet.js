@@ -1,224 +1,177 @@
 const Russet = {
-  canvas: null,
-  context: null,
-  world: null,
+  _canvas: null,
+  _ctx: null,
+  scene: null,
   camera: null,
   width: 0,
   height: 0,
-  prevTime: 0,
+  _prevTime: 0,
+  _keysDown: new Set(),
+  mouse: { x: 0, y: 0 },
+  _tickFunc: null,
 
   /*
-   * Initializes everything by appending a canvas that children will be drawn
-   * in to the DOM, and starting the animation loop
+   * Initializes Russet's internal variables, sets up event listeners, and
+   * appends the canvas to the DOM
    */
-  init: function () {
+  init() {
+    this._canvas = document.createElement('canvas');
+    this._ctx = this._canvas.getContext('2d');
+
+    this._handleResize(); // Sets the inital canvas size
+
+    window.addEventListener('resize', this._handleResize.bind(this));
+    window.addEventListener('mousemove', this._handleMousemove.bind(this));
+    document.addEventListener('keydown', this._handleKeydown.bind(this));
+    document.addEventListener('keyup', this._handleKeyup.bind(this));
+
     document.body.style.margin = '0px';
-
-    this.canvas = document.createElement('canvas');
-    this.context = this.canvas.getContext('2d');
-
-    // Set initial size and add resize listener
-    this.handleResize();
-    window.addEventListener('resize', () => this.handleResize());
-
-    document.body.appendChild(this.canvas);
-
-    // Start the animation loop
-    this.tick();
+    document.body.appendChild(this._canvas);
   },
 
   /*
-   * Makes the canvas element take up the full screen, and updates internal
-   * width and height variables
+   * Makes the canvas take up the full screen, and updates Russet's internal
+   * width/height variables
    */
-  handleResize: function () {
-    // Update internal width/height variables
+  _handleResize() {
+    // Update internal width and height
     this.width = window.innerWidth;
     this.height = window.innerHeight;
 
     // Update the actual size of the canvas (handling high dpi screens)
-    const dpr = window.devicePixelRatio || 1;
+    this._canvas.width = this.width * window.devicePixelRatio;
+    this._canvas.height = this.height * window.devicePixelRatio;
 
-    this.canvas.width = this.width * dpr;
-    this.canvas.height = this.height * dpr;
+    this._canvas.style.width = `${this.width}px`;
+    this._canvas.style.height = `${this.height}px`;
 
-    this.canvas.style.width = `${this.width}px`;
-    this.canvas.style.height = `${this.height}px`;
-
-    this.context.scale(dpr, dpr);
+    this._ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
   },
 
   /*
-   * An animation loop that is called once every frame, with functionality that
-   * can be added to by the user with the "onTick" function
+   * Updates Russet's internal mouse position
    */
-  tick: function () {
-    // Make sure the world and camera are both defined so we can draw on canvas
-    if (!this.world) {
-      window.requestAnimationFrame(() => this.tick());
-      return;
-    }
-    if (!this.camera) {
-      window.requestAnimationFrame(() => this.tick());
-      return;
+  _handleMousemove(e) {
+    this.mouse.x = e.clientX;
+    this.mouse.y = e.clientY;
+  },
+
+  /*
+   * Updates Russet's internal set of currently pressed keys
+   */
+  _handleKeydown(e) {
+    if (e.repeat) return;
+    this._keysDown.add(e.code);
+  },
+
+  /*
+   * Updates Russet's internal set of currently pressed keys
+   */
+  _handleKeyup(e) {
+    this._keysDown.delete(e.code);
+  },
+
+  /*
+   * Returns true if the key with the specified code is currently pressed
+   */
+  keyDown(code) {
+    return this._keysDown.has(code);
+  },
+
+  /*
+   * Draws every child in the scene, every frame
+   */
+  _tick() {
+    // Call the user's function if it is specified
+    if (this._tickFunc) {
+      const deltaTime = (performance.now() - this._prevTime) / 1000;
+      this._tickFunc(deltaTime);
     }
 
-    // Call "onTick" if the user has defined it
-    if (typeof onTick === 'function') {
-      const deltaTime = (performance.now() - this.prevTime) / 1000;
-      onTick(deltaTime);
-    }
-
-    // Clear the canvas
-    this.context.fillStyle = this.world.color;
-    this.context.fillRect(0, 0, this.width, this.height);
-
-    // Draw all the children in the world
+    // Figure out how zoomed in the browser is relative to the camera
     const scale = Math.max(
-      this.width / this.camera.maxWidth,
-      this.height / this.camera.maxHeight
+      this.width / this.camera.width,
+      this.height / this.camera.height
     );
 
-    this.world.children.forEach((child) => {
-      this.drawChild(child, scale);
-    });
+    if (this.scene) {
+      this._ctx.fillStyle = this.scene.background;
+      this._ctx.fillRect(0, 0, this.width, this.height);
 
-    this.prevTime = performance.now();
-    window.requestAnimationFrame(() => this.tick());
+      this._ctx.save();
+      this._ctx.translate(this.width / 2, this.height / 2);
+      this._ctx.scale(scale, scale);
+      this._ctx.translate(-this.camera.position.x, -this.camera.position.y);
+
+      for (let child of this.scene.children) {
+        child.draw(this._ctx);
+      }
+
+      this._ctx.restore();
+    }
+
+    this._prevTime = performance.now();
+    window.requestAnimationFrame(this._tick.bind(this));
   },
 
   /*
-   * Draws a child of any type onto the canvas, taking into account the camera
-   * position and the size of the browser window
+   * Begins the animation loop with an optional function argument, where the
+   * user can put their own code to be called every frame before we draw
    */
-  drawChild: function (child, scale) {
-    const classType = child.constructor.name;
-
-    if (classType === 'Rect') {
-      this.drawRect(child, scale);
-    } else if (classType === 'Circle') {
-      this.drawCircle(child, scale);
-    } else if (classType === 'Line') {
-      this.drawLine(child, scale);
-    } else {
-      throw 'Unknown shape type in the active world';
-    }
-  },
-
-  /*
-   * Draws a rectangle onto the canvas, taking into account the camera position
-   * and the size of the browser window
-   */
-  drawRect: function (rect, scale) {
-    const x = (rect.x - this.camera.x) * scale + this.width / 2;
-    const y = (rect.y - this.camera.y) * scale + this.height / 2;
-    const width = rect.width * scale;
-    const height = rect.height * scale;
-
-    this.context.beginPath();
-    this.context.rect(x, y, width, height);
-
-    if (rect.fill) {
-      this.context.fillStyle = rect.fill;
-      this.context.fill();
-    }
-    if (rect.strokeWidth) {
-      this.context.strokeStyle = rect.stroke;
-      this.context.lineWidth = rect.strokeWidth * scale;
-      this.context.stroke();
-    }
-  },
-
-  /*
-   * Draws a circle onto the canvas, taking into account the camera position
-   * and the size of the browser window
-   */
-  drawCircle: function (circle, scale) {
-    let x = (circle.x - this.camera.x) * scale + this.width / 2;
-    let y = (circle.y - this.camera.y) * scale + this.height / 2;
-    const r = circle.r * scale;
-
-    this.context.beginPath();
-    this.context.arc(x, y, r, 0, 2 * Math.PI);
-
-    if (circle.fill) {
-      this.context.fillStyle = circle.fill;
-      this.context.fill();
-    }
-    if (circle.strokeWidth) {
-      this.context.strokeStyle = circle.stroke;
-      this.context.lineWidth = circle.strokeWidth * scale;
-      this.context.stroke();
-    }
-  },
-
-  /*
-   * Draws a line onto the canvas, taking into account the camera position and
-   * the size of the browser window
-   */
-  drawLine: function (line, scale) {
-    const x1 = (line.x1 - this.camera.x) * scale + this.width / 2;
-    const y1 = (line.y1 - this.camera.y) * scale + this.height / 2;
-    const x2 = (line.x2 - this.camera.x) * scale + this.width / 2;
-    const y2 = (line.y2 - this.camera.y) * scale + this.height / 2;
-
-    this.context.beginPath();
-    this.context.moveTo(x1, y1);
-    this.context.lineTo(x2, y2);
-
-    if (line.strokeWidth) {
-      this.context.strokeStyle = line.stroke;
-      this.context.lineWidth = line.strokeWidth;
-      this.context.stroke();
-    }
-  },
-
-  /*
-   * Sets the active world that is being drawn on the canvas
-   */
-  setWorld: function (world) {
-    this.world = world;
-  },
-
-  /*
-   * Sets the active camera that determines where stuff should be drawn
-   */
-  setCamera: function (camera) {
-    this.camera = camera;
+  startTicking(func) {
+    this._tickFunc = func;
+    this._prevTime = performance.now();
+    this._tick();
   },
 };
 
-class World {
-  constructor(width, height, color = 'white') {
+class Scene {
+  constructor(width, height, background = 'black') {
     this.width = width;
     this.height = height;
-    this.color = color;
+    this.background = background;
     this.children = [];
   }
 
   /*
-   * Creates a rectangle element at point (x, y) and with a given width/height,
-   * and appends it to the world's children
+   * Returns the position at the center of the scene
    */
-  makeRect(x, y, width, height) {
-    const rect = new Rect(x, y, width, height);
+  get center() {
+    return {
+      x: this.width / 2,
+      y: this.height / 2,
+    };
+  }
+
+  /*
+   * Makes a new empty group and appends it to the scene
+   */
+  makeGroup() {
+    const group = new Group();
+    this.children.push(group);
+    return group;
+  }
+
+  /*
+   * Makes a new rectangle and appends it to the scene
+   */
+  makeRect(position, width, height) {
+    const rect = new Rect(position, width, height);
     this.children.push(rect);
     return rect;
   }
 
   /*
-   * Creates a circle element at point (x, y) and with a given radius, and
-   * appends it to the world's children
+   * Makes a new circle and appends it to the scene
    */
-  makeCircle(x, y, r) {
-    const circle = new Circle(x, y, r);
+  makeCircle(position, radius) {
+    const circle = new Circle(position, radius);
     this.children.push(circle);
     return circle;
   }
 
   /*
-   * Creates a line element going from point (x1, y1) to point (x2, y2), and
-   * appends it to the world's children
+   * Makes a new line and appends it to the scene
    */
   makeLine(x1, y1, x2, y2) {
     const line = new Line(x1, y1, x2, y2);
@@ -228,78 +181,82 @@ class World {
 }
 
 class Camera {
-  constructor(x, y, maxWidth, maxHeight) {
-    this.x = x;
-    this.y = y;
-    this.maxWidth = maxWidth;
-    this.maxHeight = maxHeight;
+  constructor(position, width, height) {
+    this.position = position;
+    this.width = width;
+    this.height = height;
   }
 }
 
 class Rect {
-  constructor(x, y, width, height) {
-    this.x = x;
-    this.y = y;
+  constructor(position, width, height) {
+    this.position = position;
     this.width = width;
     this.height = height;
-    this.fill = 'black';
-    this.stroke = 'black';
-    this.strokeWidth = 0;
+    this.anchor = { x: 0, y: 0 };
+    this.rotation = 0;
+    this.fill = 'white';
+    this.stroke = 'white';
+    this.lineWidth = 0;
   }
 
   /*
-   * Sets the fill color of the rectangle
+   * Renders this rectangle onto the canvas
    */
-  setFill(color) {
-    this.fill = color;
-  }
+  draw(ctx) {
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.rotate(this.rotation);
 
-  /*
-   * Sets the stroke color of the rectangle
-   */
-  setStroke(color) {
-    this.stroke = color;
-  }
+    ctx.beginPath();
+    ctx.rect(-this.anchor.x, -this.anchor.y, this.width, this.height);
+    if (this.fill) {
+      ctx.fillStyle = this.fill;
+      ctx.fill();
+    }
+    if (this.stroke && this.lineWidth) {
+      ctx.strokeStyle = this.stroke;
+      ctx.lineWidth = this.lineWidth;
+      ctx.stroke();
+    }
 
-  /*
-   * Sets the stroke width of the rectangle (it will render thinner or thicker
-   * depending on the camera and browser size)
-   */
-  setStrokeWidth(width) {
-    this.strokeWidth = width;
+    ctx.restore();
   }
 }
 
 class Circle {
-  constructor(x, y, r) {
-    this.x = x;
-    this.y = y;
-    this.r = r;
-    this.fill = 'black';
-    this.stroke = 'black';
-    this.strokeWidth = 0;
+  constructor(position, radius) {
+    this.position = position;
+    this.radius = radius;
+    this.anchor = { x: 0, y: 0 };
+    this.rotation = 0;
+    this.fill = 'white';
+    this.stroke = 'white';
+    this.lineWidth = 0;
   }
 
   /*
-   * Sets the fill color of the circle
+   * Renders this circle onto the canvas
    */
-  setFill(color) {
-    this.fill = color;
-  }
+  draw(ctx) {
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.rotate(this.rotation);
 
-  /*
-   * Sets the stroke color of the circle
-   */
-  setStroke(color) {
-    this.stroke = color;
-  }
+    ctx.beginPath();
+    ctx.arc(-this.anchor.x, -this.anchor.y, this.radius, 0, 2 * Math.PI);
 
-  /*
-   * Sets the stroke width of the circle (it will render thinner or thicker
-   * depending on the camera and browser size)
-   */
-  setStrokeWidth(width) {
-    this.strokeWidth = width;
+    if (this.fill) {
+      ctx.fillStyle = this.fill;
+      ctx.fill();
+    }
+    if (this.stroke && this.lineWidth) {
+      ctx.strokeStyle = this.stroke;
+      ctx.lineWidth = this.lineWidth;
+      ctx.stroke();
+    }
+
+    ctx.restore();
   }
 }
 
@@ -309,22 +266,95 @@ class Line {
     this.y1 = y1;
     this.x2 = x2;
     this.y2 = y2;
-    this.stroke = 'black';
-    this.strokeWidth = 1;
+    this.anchor = { x: 0, y: 0 };
+    this.rotation = 0;
+    this.stroke = 'white';
+    this.lineWidth = 0;
   }
 
   /*
-   * Sets the stroke color of the line
+   * Renders this line onto the canvas
    */
-  setStroke(color) {
-    this.stroke = color;
+  draw(ctx) {
+    ctx.save();
+    ctx.translate(this.x1, this.y1);
+    ctx.rotate(this.rotation);
+
+    ctx.beginPath();
+    ctx.moveTo(-this.anchor.x, -this.anchor.y);
+    ctx.lineTo(
+      this.x2 - this.x1 - this.anchor.x,
+      this.y2 - this.y1 - this.anchor.y
+    );
+    ctx.strokeStyle = this.stroke;
+    ctx.lineWidth = this.lineWidth;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
+class Group {
+  constructor(children = []) {
+    this.children = children;
+    this.position = { x: 0, y: 0 };
+    this.anchor = { x: 0, y: 0 };
+    this.scale = 1;
+    this.rotation = 0;
   }
 
   /*
-   * Sets the stroke width of the line (it will render thinner or thicker
-   * depending on the camera and browser size)
+   * Renders a group onto the canvas. We can imagine all the children in the
+   * scene as a tree, where translations/rotations/scales are accumulated
+   * as we traverse down
    */
-  setStrokeWidth(width) {
-    this.strokeWidth = width;
+  draw(ctx) {
+    ctx.save();
+    ctx.translate(this.position.x, this.position.y);
+    ctx.rotate(this.rotation);
+    ctx.scale(this.scale, this.scale);
+    ctx.translate(-this.anchor.x, -this.anchor.y);
+
+    for (let child of this.children) {
+      child.draw(ctx);
+    }
+
+    ctx.restore();
+  }
+
+  /*
+   * Makes a new empty group and appends it to the scene
+   */
+  makeGroup() {
+    const group = new Group();
+    this.children.push(group);
+    return group;
+  }
+
+  /*
+   * Makes a new rectangle and appends it to the scene
+   */
+  makeRect(position, width, height) {
+    const rect = new Rect(position, width, height);
+    this.children.push(rect);
+    return rect;
+  }
+
+  /*
+   * Makes a new circle and appends it to the scene
+   */
+  makeCircle(position, radius) {
+    const circle = new Circle(position, radius);
+    this.children.push(circle);
+    return circle;
+  }
+
+  /*
+   * Makes a new line and appends it to the scene
+   */
+  makeLine(x1, y1, x2, y2) {
+    const line = new Line(x1, y1, x2, y2);
+    this.children.push(line);
+    return line;
   }
 }

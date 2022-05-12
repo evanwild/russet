@@ -2,14 +2,13 @@
 
 Russet is a small JavaScript library to simplify making 2D games for the web.
 
-It's a layer over the Canvas API that allows you to create worlds full of objects, and move cameras around in them.
+It includes a lot of features to make your life easier, such as:
 
-It includes a lot of stuff to make your life easier, such as:
-
+- Letting you create persistent worlds to place objects in
+- Translating, scaling, and rotating groups or individual shapes
+- Making cameras that can move around and zoom in/out
 - Crisp graphics on high-DPI displays
-- Drawing shapes correctly when the browser is resized
-- Culling objects that aren't in the view (big performance boost)
-- Putting objects into groups to be rotated, scaled, and translated
+- Scaling and translating shapes automatically when the browser is resized
 
 ## Example
 
@@ -17,7 +16,7 @@ It includes a lot of stuff to make your life easier, such as:
 <!DOCTYPE html>
 <html>
   <head>
-	<meta charset="UTF-8" />
+    <meta charset="UTF-8" />
     <title>Russet Example</title>
     <script src="./russet.js"></script>
   </head>
