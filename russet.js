@@ -201,6 +201,14 @@ class Rect {
   }
 
   /*
+   * Moves the rectangle's position a certain amount in the direction it's facing
+   */
+  moveForward(amount) {
+    this.position.x += amount * Math.cos(this.rotation);
+    this.position.y += amount * Math.sin(this.rotation);
+  }
+
+  /*
    * Renders this rectangle onto the canvas
    */
   draw(ctx) {
@@ -233,6 +241,14 @@ class Circle {
     this.fill = 'white';
     this.stroke = 'white';
     this.lineWidth = 0;
+  }
+
+  /*
+   * Moves the circle's position a certain amount in the direction it's facing
+   */
+  moveForward(amount) {
+    this.position.x += amount * Math.cos(this.rotation);
+    this.position.y += amount * Math.sin(this.rotation);
   }
 
   /*
@@ -320,6 +336,14 @@ class Group {
     }
 
     ctx.restore();
+  }
+
+  /*
+   * Moves the group's position a certain amount in the direction it's facing
+   */
+  moveForward(amount) {
+    this.position.x += amount * Math.cos(this.rotation);
+    this.position.y += amount * Math.sin(this.rotation);
   }
 
   /*
