@@ -133,7 +133,7 @@ class Russet {
    * Returns true if the key with the specified code is currently pressed
    */
   isKeyDown(code: string) {
-    this.keysDown.has(code);
+    return this.keysDown.has(code);
   }
 }
 
@@ -198,14 +198,14 @@ class Scene {
 }
 
 class Camera {
+  position: Point;
   width: number;
   height: number;
-  position: Point;
 
-  constructor(width: number, height: number, position: Point) {
+  constructor(position: Point, width: number, height: number) {
+    this.position = position;
     this.width = width;
     this.height = height;
-    this.position = position;
   }
 }
 

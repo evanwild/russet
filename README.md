@@ -1,14 +1,23 @@
 # russet
 
-Russet is a small JavaScript library to simplify making 2D games for the web.
+Russet is a lightweight JavaScript library for building 2D web games.
 
-It includes a lot of features to make your life easier, such as:
+It's an abstraction of the HTML Canvas API full of features to make your life easier:
 
-- Letting you create persistent worlds to place objects in
-- Translating, scaling, and rotating groups or individual shapes
-- Making cameras that can move around and zoom in/out
-- Crisp graphics on high-DPI displays
-- Scaling and translating shapes automatically when the browser is resized
+- Create scenes and place persistent shapes/objects in them
+- Make cameras that can move around and zoom in/out
+- Translate, scale, and rotate groups or individual shapes
+- Automatic crisp graphics on high-DPI displays
+- Render everything correctly when the browser is resized
+- Capture mouse and keyboard input
+
+## Installation
+
+Download either `russet.js` (8.3kb) or `russet.min.js` (4.8kb) from the `/dist` folder. Include the script in your HTML file before your game scripts:
+
+```html
+<script src="./russet.js"></script>
+```
 
 ## Example
 
@@ -22,20 +31,35 @@ It includes a lot of features to make your life easier, such as:
   </head>
   <body>
     <script>
-      // Creates a canvas and starts the game loop
-      Russet.init();
+      // Initialize the library
+      const russet = new Russet();
 
-      // Sets the active world to be 1000x1000 units with a white background
-      const world = new World(1000, 1000, 'white');
-      Russet.setWorld(world);
+      // Set the active scene to be 1000x1000 units with a black background
+      const scene = new Scene(1000, 1000, 'black');
+      russet.scene = scene;
 
-      // Sets the active camera to one at the centre of the world, which can
-      // see 160 units wide and 90 units high
-      const camera = new Camera(500, 500, 160, 90);
-      Russet.setCamera(camera);
+      // Set the active camera to one at the center of the scene, which can
+      // see 800 units wide and 600 units high
+      const camera = new Camera(scene.center, 800, 600);
+      russet.camera = camera;
 
-      // Place a circle at the centre of the world with radius 32
-      const circle = world.makeCircle(500, 500, 32);
+      // Place a circle at the center of the scene with radius 32 units
+      const circle = scene.makeCircle(scene.center, 32);
+      circle.fill = 'red';
+
+      // Define a function which moves the circle to the left or right 300
+      // units every second if the arrow keys are pressed
+      const update = (deltaTime) => {
+        if (russet.isKeyDown('ArrowLeft')) {
+          circle.position.x -= 300 * deltaTime;
+        }
+        if (russet.isKeyDown('ArrowRight')) {
+          circle.position.x += 300 * deltaTime;
+        }
+      };
+
+      // Start the game loop, calling our update function before every draw
+      russet.startGameLoop(update);
     </script>
   </body>
 </html>
