@@ -64,7 +64,7 @@ var Russet = (function () {
         this.keysDown.delete(event.code);
     };
     Russet.prototype.isKeyDown = function (code) {
-        this.keysDown.has(code);
+        return this.keysDown.has(code);
     };
     return Russet;
 }());
@@ -109,10 +109,10 @@ var Scene = (function () {
     return Scene;
 }());
 var Camera = (function () {
-    function Camera(width, height, position) {
+    function Camera(position, width, height) {
+        this.position = position;
         this.width = width;
         this.height = height;
-        this.position = position;
     }
     return Camera;
 }());
